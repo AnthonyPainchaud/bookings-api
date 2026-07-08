@@ -1,7 +1,9 @@
 using System.Reflection;
+using Bookings.Application.Common.Exceptions;
 using Bookings.Application.Common.Interfaces;
 using Bookings.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Bookings.Infrastructure.Persistence;
 
@@ -30,5 +32,24 @@ public class BookingsDbContext : DbContext, IApplicationDbContext
         // Pick up every IEntityTypeConfiguration<T> in this assembly, keeping the
         // context lean and each entity's mapping in its own focused file.
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+    }
+
+    /// <summary>
+    /// Translates PostgreSQL uniqueness/exclusion-constraint violations into a
+    /// provider-agnostic <see cref="ConflictException"/>. This keeps Npgsql
+    /// details out of the Application layer while still letting services convert
+    /// a race-condition conflict into a clean 409 response.
+    /// </summary>
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg &&
+            pg.SqlState is PostgresErrorCodes.ExclusionViolation or PostgresErrorCodes.UniqueViolation)
+        {
+            throw new ConflictException(pg.MessageText, pg.ConstraintName);
+        }
     }
 }

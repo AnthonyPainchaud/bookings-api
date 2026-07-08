@@ -5,8 +5,9 @@ A production-style REST API for a bookings / reservations system — resources
 slots. Built with **ASP.NET Core (.NET 8)**, **Entity Framework Core**, and
 **PostgreSQL**, and fully containerized with Docker.
 
-> **Status:** Stage 1 — project skeleton, core domain, and Resource CRUD.
-> Bookings logic, conflict detection, and auth arrive in later stages.
+> **Status:** Resource + User management and Booking functionality with
+> overlap-conflict detection and concurrency-safe reservations. Authentication
+> arrives next.
 
 ## Tech stack
 
@@ -87,6 +88,66 @@ curl -X POST http://localhost:8080/api/resources \
       }'
 ```
 
+## User API
+
+| Method | Route              | Description         | Success              |
+|--------|--------------------|---------------------|----------------------|
+| `GET`  | `/api/users`       | List all users      | `200 OK`             |
+| `GET`  | `/api/users/{id}`  | Get a user by id    | `200` / `404`        |
+| `POST` | `/api/users`       | Register a user     | `201` / `400` / `409`|
+
+## Booking API
+
+| Method | Route                              | Description               | Success                     |
+|--------|------------------------------------|---------------------------|-----------------------------|
+| `POST` | `/api/bookings`                    | Create a booking          | `201` / `400` / `404` / `409` |
+| `GET`  | `/api/bookings/{id}`               | Get a booking by id       | `200` / `404`               |
+| `POST` | `/api/bookings/{id}/cancel`        | Cancel a booking          | `200` / `404` / `409`       |
+| `GET`  | `/api/resources/{resourceId}/bookings` | List a resource's bookings | `200` / `404`          |
+| `GET`  | `/api/users/{userId}/bookings`     | List a user's bookings    | `200` / `404`               |
+
+The list endpoints accept optional `from`, `to` (ISO-8601), and
+`includeCancelled` (default `false`) query parameters.
+
+Example — create a booking:
+
+```bash
+curl -X POST http://localhost:8080/api/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+        "resourceId": "<resource-id>",
+        "userId": "<user-id>",
+        "startsAt": "2026-08-01T10:00:00Z",
+        "endsAt": "2026-08-01T11:00:00Z",
+        "notes": "Sprint planning"
+      }'
+```
+
+### Domain rules
+
+A booking is rejected with `400 Bad Request` when the end is not after the
+start, the start is in the past, or the duration exceeds 24 hours. Booking a
+non-existent resource or user returns `404`, and booking an inactive resource
+returns `400`.
+
+### Conflict detection & concurrency
+
+A resource cannot be double-booked. Bookings are modelled as half-open intervals
+`[startsAt, endsAt)`, so two bookings conflict exactly when
+`existing.startsAt < new.endsAt AND new.startsAt < existing.endsAt` — a single
+predicate that covers every overlap shape (starts-during, ends-during,
+containing, contained, exact). Back-to-back bookings (one ends exactly when the
+next starts) do **not** conflict. Cancelled bookings free their slot.
+
+Correctness under concurrency is guaranteed by a **PostgreSQL exclusion
+constraint** (`EXCLUDE USING gist` over a `tstzrange`, partial on
+`status <> 'Cancelled'`): the database itself refuses any two overlapping,
+non-cancelled bookings for the same resource, so two simultaneous requests for
+the same slot can never both succeed. The service also runs an application-level
+overlap check first for a fast, friendly `409` in the common case; the
+constraint is the definitive backstop for the race. Both paths return
+`409 Conflict`.
+
 ## Database migrations
 
 Migrations live in `src/Bookings.Infrastructure/Persistence/Migrations` and are
@@ -103,6 +164,6 @@ dotnet ef migrations add <Name> \
 
 ## Roadmap
 
-- **Stage 2** — `User` and `Booking` CRUD + booking-conflict prevention.
-- **Stage 3** — authentication & authorization.
-- **Stage 4** — validation hardening, rate limiting, pagination, tests, CI.
+- Authentication & authorization.
+- Validation hardening, rate limiting, pagination.
+- Automated test suite (integration tests against PostgreSQL) and CI.

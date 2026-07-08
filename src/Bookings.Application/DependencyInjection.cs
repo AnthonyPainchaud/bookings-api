@@ -1,4 +1,6 @@
+using Bookings.Application.Bookings;
 using Bookings.Application.Resources;
+using Bookings.Application.Users;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bookings.Application;
@@ -13,6 +15,8 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<IResourceService, ResourceService>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IBookingService, BookingService>();
 
         // TimeProvider makes "now" injectable, so time-dependent logic stays testable.
         services.AddSingleton(TimeProvider.System);
