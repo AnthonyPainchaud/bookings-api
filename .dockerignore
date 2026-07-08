@@ -1,0 +1,20 @@
+# Keep the build context small and deterministic — let the Docker build
+# restore/compile from source rather than copying local build artifacts.
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+.git/
+.gitignore
+.vs/
+.vscode/
+.idea/
+**/*.user
+
+.nuget/
+.env
+.env.*
+
+README.md
+docker-compose.yml

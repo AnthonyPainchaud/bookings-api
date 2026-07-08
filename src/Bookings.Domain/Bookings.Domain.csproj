@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Domain layer is the heart of the application: entities and enums that
+    model the business. It intentionally has NO project or package references
+    so the core model stays framework-agnostic and easy to reason about.
+  -->
+
+</Project>

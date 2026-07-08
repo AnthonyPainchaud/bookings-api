@@ -1,0 +1,46 @@
+# Spins up the API and its PostgreSQL database together.
+#
+#   docker compose up --build
+#
+# The API waits for Postgres to report healthy, then applies EF Core migrations
+# on startup, so the stack is ready to use with no manual steps.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: bookings-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bookings
+    ports:
+      # Host port 5544 avoids clashing with a local PostgreSQL on 5432. The API
+      # itself reaches the database over the internal compose network, so this
+      # mapping is only for connecting from the host (psql, a GUI, etc.).
+      - "5544:5432"
+    volumes:
+      - bookings-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bookings"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bookings-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # The aspnet:8.0 base image already binds http://+:8080 by default.
+      # Double-underscore maps to the ConnectionStrings:Default configuration key.
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=bookings;Username=postgres;Password=postgres"
+    ports:
+      - "8080:8080"
+
+volumes:
+  bookings-db-data:

@@ -1,0 +1,36 @@
+# .NET build output
+bin/
+obj/
+out/
+publish/
+
+# Local NuGet package cache (only relevant if NUGET_PACKAGES is redirected here)
+.nuget/
+
+# User-specific / IDE files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+*.DotSettings.user
+
+# Test results / coverage
+[Tt]est[Rr]esults/
+coverage/
+*.coverage
+*.trx
+
+# Environment overrides — never commit real secrets
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+
+# OS noise
+.DS_Store
+Thumbs.db

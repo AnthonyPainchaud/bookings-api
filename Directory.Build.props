@@ -1,0 +1,18 @@
+<Project>
+
+  <!--
+    Shared build settings applied to every project in the solution.
+    Keeping these here (rather than repeating them in each .csproj) keeps the
+    individual project files small and guarantees consistent language/analysis
+    settings across the whole codebase.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>
