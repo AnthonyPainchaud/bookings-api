@@ -20,6 +20,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(200);
 
+        // BCrypt hashes are 60 characters; leave headroom for algorithm changes.
+        builder.Property(u => u.PasswordHash)
+            .IsRequired()
+            .HasMaxLength(100);
+
         // One account per email address.
         builder.HasIndex(u => u.Email)
             .IsUnique();

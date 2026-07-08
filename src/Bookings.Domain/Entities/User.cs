@@ -1,8 +1,7 @@
 namespace Bookings.Domain.Entities;
 
 /// <summary>
-/// A person who can make bookings. Authentication/identity concerns are out of
-/// scope for now — this is purely the domain record of who owns a reservation.
+/// A person who can authenticate and make bookings.
 /// </summary>
 public class User
 {
@@ -12,6 +11,9 @@ public class User
     public required string Email { get; set; }
 
     public required string FullName { get; set; }
+
+    /// <summary>BCrypt hash of the user's password. The plaintext is never stored.</summary>
+    public required string PasswordHash { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

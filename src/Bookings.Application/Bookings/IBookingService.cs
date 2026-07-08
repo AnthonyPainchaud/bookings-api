@@ -12,19 +12,23 @@ public record BookingQuery(
 public interface IBookingService
 {
     /// <summary>
-    /// Creates a booking after validating domain rules and checking for overlaps.
-    /// Fails with a conflict if the resource is already booked for the range.
+    /// Creates a booking owned by <paramref name="userId"/> after validating
+    /// domain rules and checking for overlaps. Conflict if the slot is taken.
     /// </summary>
-    Task<Result<BookingResponse>> CreateAsync(CreateBookingRequest request, CancellationToken cancellationToken = default);
+    Task<Result<BookingResponse>> CreateAsync(Guid userId, CreateBookingRequest request, CancellationToken cancellationToken = default);
 
-    Task<BookingResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Gets a booking. Forbidden if it is not owned by <paramref name="userId"/>.</summary>
+    Task<Result<BookingResponse>> GetByIdAsync(Guid userId, Guid bookingId, CancellationToken cancellationToken = default);
 
-    /// <summary>Cancels a booking. Idempotent for an already-cancelled booking.</summary>
-    Task<Result<BookingResponse>> CancelAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Cancels a booking, freeing its slot. Forbidden if it is not owned by
+    /// <paramref name="userId"/>. Idempotent for an already-cancelled booking.
+    /// </summary>
+    Task<Result<BookingResponse>> CancelAsync(Guid userId, Guid bookingId, CancellationToken cancellationToken = default);
 
-    /// <summary>Lists bookings for a resource. Fails with not-found if the resource does not exist.</summary>
+    /// <summary>Lists bookings for a resource. Not-found if the resource does not exist.</summary>
     Task<Result<IReadOnlyList<BookingResponse>>> GetForResourceAsync(Guid resourceId, BookingQuery query, CancellationToken cancellationToken = default);
 
-    /// <summary>Lists bookings for a user. Fails with not-found if the user does not exist.</summary>
-    Task<Result<IReadOnlyList<BookingResponse>>> GetForUserAsync(Guid userId, BookingQuery query, CancellationToken cancellationToken = default);
+    /// <summary>Lists the bookings owned by <paramref name="userId"/>.</summary>
+    Task<IReadOnlyList<BookingResponse>> GetForUserAsync(Guid userId, BookingQuery query, CancellationToken cancellationToken = default);
 }

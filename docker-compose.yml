@@ -39,6 +39,9 @@ services:
       # The aspnet:8.0 base image already binds http://+:8080 by default.
       # Double-underscore maps to the ConnectionStrings:Default configuration key.
       ConnectionStrings__Default: "Host=db;Port=5432;Database=bookings;Username=postgres;Password=postgres"
+      # DEV-ONLY signing key. In production this must be supplied as a real secret
+      # (secret manager / CI variable) and never committed. Must be >= 32 bytes.
+      Jwt__Key: "dev-only-super-secret-signing-key-change-me-in-production-32b+"
     ports:
       - "8080:8080"
 

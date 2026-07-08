@@ -22,7 +22,7 @@ public class BookingService : IBookingService
         _timeProvider = timeProvider;
     }
 
-    public async Task<Result<BookingResponse>> CreateAsync(CreateBookingRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<BookingResponse>> CreateAsync(Guid userId, CreateBookingRequest request, CancellationToken cancellationToken = default)
     {
         var now = _timeProvider.GetUtcNow();
 
@@ -30,11 +30,6 @@ public class BookingService : IBookingService
         if (request.ResourceId == Guid.Empty)
         {
             return Error.Validation("A resource id is required.");
-        }
-
-        if (request.UserId == Guid.Empty)
-        {
-            return Error.Validation("A user id is required.");
         }
 
         if (request.EndsAt <= request.StartsAt)
@@ -52,7 +47,7 @@ public class BookingService : IBookingService
             return Error.Validation("A booking cannot start in the past.");
         }
 
-        // --- Referenced entities must exist (and the resource must be bookable) ---
+        // --- The resource must exist and be bookable ---
         var resource = await _dbContext.Resources
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == request.ResourceId, cancellationToken);
@@ -65,14 +60,6 @@ public class BookingService : IBookingService
         if (!resource.IsActive)
         {
             return Error.Validation("The resource is not active and cannot be booked.");
-        }
-
-        var userExists = await _dbContext.Users
-            .AnyAsync(u => u.Id == request.UserId, cancellationToken);
-
-        if (!userExists)
-        {
-            return Error.NotFound($"User '{request.UserId}' was not found.");
         }
 
         // --- Overlap check (friendly path) ---
@@ -88,7 +75,7 @@ public class BookingService : IBookingService
         {
             Id = Guid.NewGuid(),
             ResourceId = request.ResourceId,
-            UserId = request.UserId,
+            UserId = userId,
             StartsAt = request.StartsAt,
             EndsAt = request.EndsAt,
             Status = BookingStatus.Confirmed,
@@ -113,23 +100,38 @@ public class BookingService : IBookingService
         return Result<BookingResponse>.Success(booking.ToResponse());
     }
 
-    public async Task<BookingResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Result<BookingResponse>> GetByIdAsync(Guid userId, Guid bookingId, CancellationToken cancellationToken = default)
     {
         var booking = await _dbContext.Bookings
             .AsNoTracking()
-            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
-
-        return booking?.ToResponse();
-    }
-
-    public async Task<Result<BookingResponse>> CancelAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var booking = await _dbContext.Bookings
-            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(b => b.Id == bookingId, cancellationToken);
 
         if (booking is null)
         {
-            return Error.NotFound($"Booking '{id}' was not found.");
+            return Error.NotFound($"Booking '{bookingId}' was not found.");
+        }
+
+        if (booking.UserId != userId)
+        {
+            return Error.Forbidden("You do not have access to this booking.");
+        }
+
+        return Result<BookingResponse>.Success(booking.ToResponse());
+    }
+
+    public async Task<Result<BookingResponse>> CancelAsync(Guid userId, Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        var booking = await _dbContext.Bookings
+            .FirstOrDefaultAsync(b => b.Id == bookingId, cancellationToken);
+
+        if (booking is null)
+        {
+            return Error.NotFound($"Booking '{bookingId}' was not found.");
+        }
+
+        if (booking.UserId != userId)
+        {
+            return Error.Forbidden("You can only cancel your own bookings.");
         }
 
         // Idempotent: cancelling an already-cancelled booking is a no-op success.
@@ -168,21 +170,12 @@ public class BookingService : IBookingService
             bookings.Select(b => b.ToResponse()).ToList());
     }
 
-    public async Task<Result<IReadOnlyList<BookingResponse>>> GetForUserAsync(Guid userId, BookingQuery query, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<BookingResponse>> GetForUserAsync(Guid userId, BookingQuery query, CancellationToken cancellationToken = default)
     {
-        var userExists = await _dbContext.Users
-            .AnyAsync(u => u.Id == userId, cancellationToken);
-
-        if (!userExists)
-        {
-            return Error.NotFound($"User '{userId}' was not found.");
-        }
-
         var bookings = await BuildQuery(_dbContext.Bookings.Where(b => b.UserId == userId), query)
             .ToListAsync(cancellationToken);
 
-        return Result<IReadOnlyList<BookingResponse>>.Success(
-            bookings.Select(b => b.ToResponse()).ToList());
+        return bookings.Select(b => b.ToResponse()).ToList();
     }
 
     private Task<bool> HasOverlapAsync(Guid resourceId, DateTimeOffset startsAt, DateTimeOffset endsAt, CancellationToken cancellationToken)
