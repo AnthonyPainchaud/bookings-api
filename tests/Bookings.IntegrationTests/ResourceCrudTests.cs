@@ -52,7 +52,7 @@ public class ResourceCrudTests
         var created = await _client.CreateResourceAsync(capacity: 4);
 
         var update = new UpdateResourceRequest(created.Name, "Updated description", created.Type, 8, false);
-        var response = await _client.PutAsJsonAsync($"/api/v1/resources/{created.Id}", update, TestJson.Options);
+        var response = await _client.UpdateResourceAsync(created.Id, update);
         response.EnsureSuccessStatusCode();
         var updated = await response.Content.ReadFromJsonAsync<ResourceResponse>(TestJson.Options);
 
@@ -67,7 +67,7 @@ public class ResourceCrudTests
         _client.AuthorizeWith(auth.AccessToken);
         var created = await _client.CreateResourceAsync();
 
-        var deleteResponse = await _client.DeleteAsync($"/api/v1/resources/{created.Id}");
+        var deleteResponse = await _client.DeleteResourceAsync(created.Id);
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
         var getResponse = await _client.GetAsync($"/api/v1/resources/{created.Id}");
@@ -77,8 +77,8 @@ public class ResourceCrudTests
     [Fact]
     public async Task Create_with_invalid_payload_returns_400()
     {
-        var auth = await _client.RegisterNewUserAsync();
-        _client.AuthorizeWith(auth.AccessToken);
+        var admin = await _client.LoginAsSeedAdminAsync();
+        _client.AuthorizeWith(admin.AccessToken);
 
         var response = await _client.PostAsJsonAsync(
             "/api/v1/resources",
@@ -86,5 +86,39 @@ public class ResourceCrudTests
             TestJson.Options);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_regular_user_cannot_create_a_resource()
+    {
+        var auth = await _client.RegisterNewUserAsync();
+        _client.AuthorizeWith(auth.AccessToken);
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/resources",
+            new CreateResourceRequest($"Room {Guid.NewGuid():N}", null, Bookings.Domain.Enums.ResourceType.MeetingRoom, 4),
+            TestJson.Options);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_regular_user_cannot_update_or_delete_a_resource()
+    {
+        var admin = await _client.LoginAsSeedAdminAsync();
+        _client.AuthorizeWith(admin.AccessToken);
+        var resource = await _client.CreateResourceAsync();
+
+        var auth = await _client.RegisterNewUserAsync();
+        _client.AuthorizeWith(auth.AccessToken);
+
+        var updateResponse = await _client.PutAsJsonAsync(
+            $"/api/v1/resources/{resource.Id}",
+            new UpdateResourceRequest(resource.Name, null, resource.Type, resource.Capacity, true),
+            TestJson.Options);
+        Assert.Equal(HttpStatusCode.Forbidden, updateResponse.StatusCode);
+
+        var deleteResponse = await _client.DeleteAsync($"/api/v1/resources/{resource.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, deleteResponse.StatusCode);
     }
 }

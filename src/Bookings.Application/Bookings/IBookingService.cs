@@ -12,6 +12,16 @@ public record BookingQuery(
     int Page = 1,
     int PageSize = 20);
 
+/// <summary>Query filter and pagination for the admin all-bookings view.</summary>
+public record AdminBookingQuery(
+    Guid? ResourceId = null,
+    Guid? UserId = null,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null,
+    bool IncludeCancelled = true,
+    int Page = 1,
+    int PageSize = 20);
+
 public interface IBookingService
 {
     /// <summary>
@@ -34,4 +44,11 @@ public interface IBookingService
 
     /// <summary>Lists the bookings owned by <paramref name="userId"/>.</summary>
     Task<PagedResult<BookingResponse>> GetForUserAsync(Guid userId, BookingQuery query, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists bookings across every resource and every user, enriched with
+    /// resource/owner details. For admin use — callers must enforce the
+    /// Admin-role check themselves (this method trusts the caller).
+    /// </summary>
+    Task<PagedResult<AdminBookingResponse>> GetAllForAdminAsync(AdminBookingQuery query, CancellationToken cancellationToken = default);
 }

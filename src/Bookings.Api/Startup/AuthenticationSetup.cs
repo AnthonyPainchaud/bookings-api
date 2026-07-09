@@ -39,7 +39,10 @@ public static class AuthenticationSetup
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
                     ValidateLifetime = true,
                     // Tight skew so expiry is enforced close to the actual instant.
-                    ClockSkew = TimeSpan.FromSeconds(30)
+                    ClockSkew = TimeSpan.FromSeconds(30),
+                    // Matches the claim type JwtTokenGenerator issues, so
+                    // [Authorize(Roles = "Admin")] / User.IsInRole(...) work.
+                    RoleClaimType = JwtTokenGenerator.RoleClaimType
                 };
 
                 // Emit ProblemDetails (not empty bodies) for auth failures, so the

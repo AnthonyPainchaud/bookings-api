@@ -25,6 +25,13 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(100);
 
+        // Persist by name for a human-readable, refactor-safe column (consistent
+        // with ResourceType/BookingStatus elsewhere in the model).
+        builder.Property(u => u.Role)
+            .HasConversion<string>()
+            .HasMaxLength(50)
+            .IsRequired();
+
         // One account per email address.
         builder.HasIndex(u => u.Email)
             .IsUnique();

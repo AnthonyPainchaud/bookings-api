@@ -176,6 +176,63 @@ public class BookingService : IBookingService
         return await PaginateAsync(filtered, query, cancellationToken);
     }
 
+    public async Task<PagedResult<AdminBookingResponse>> GetAllForAdminAsync(AdminBookingQuery query, CancellationToken cancellationToken = default)
+    {
+        var source = _dbContext.Bookings.AsNoTracking();
+
+        if (query.ResourceId is { } resourceId)
+        {
+            source = source.Where(b => b.ResourceId == resourceId);
+        }
+
+        if (query.UserId is { } userId)
+        {
+            source = source.Where(b => b.UserId == userId);
+        }
+
+        if (!query.IncludeCancelled)
+        {
+            source = source.Where(b => b.Status != BookingStatus.Cancelled);
+        }
+
+        if (query.From is { } from)
+        {
+            source = source.Where(b => b.EndsAt > from);
+        }
+
+        if (query.To is { } to)
+        {
+            source = source.Where(b => b.StartsAt < to);
+        }
+
+        // Newest-first: the admin view is a monitoring/audit surface, so recent
+        // activity is what's usually relevant.
+        var filtered = source.OrderByDescending(b => b.StartsAt);
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var items = await filtered
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Join(_dbContext.Resources, b => b.ResourceId, r => r.Id, (b, r) => new { Booking = b, Resource = r })
+            .Join(_dbContext.Users, br => br.Booking.UserId, u => u.Id, (br, u) => new AdminBookingResponse(
+                br.Booking.Id,
+                br.Booking.ResourceId,
+                br.Resource.Name,
+                u.Id,
+                u.Email,
+                u.FullName,
+                br.Booking.StartsAt,
+                br.Booking.EndsAt,
+                br.Booking.Status,
+                br.Booking.Notes,
+                br.Booking.CreatedAt,
+                br.Booking.UpdatedAt))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<AdminBookingResponse>(items, query.Page, query.PageSize, totalCount);
+    }
+
     private static async Task<PagedResult<BookingResponse>> PaginateAsync(
         IQueryable<Booking> filtered, BookingQuery query, CancellationToken cancellationToken)
     {

@@ -1,3 +1,5 @@
+using Bookings.Domain.Enums;
+
 namespace Bookings.Domain.Entities;
 
 /// <summary>
@@ -14,6 +16,9 @@ public class User
 
     /// <summary>BCrypt hash of the user's password. The plaintext is never stored.</summary>
     public required string PasswordHash { get; set; }
+
+    /// <summary>Privilege level. Every account is a regular <see cref="UserRole.User"/> unless promoted.</summary>
+    public UserRole Role { get; set; } = UserRole.User;
 
     public DateTimeOffset CreatedAt { get; set; }
 

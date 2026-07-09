@@ -3,6 +3,8 @@ using Bookings.Api.Common;
 using Bookings.Application.Common.Pagination;
 using Bookings.Application.Resources;
 using Bookings.Application.Resources.Dtos;
+using Bookings.Domain.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Bookings.Api.Controllers;
@@ -46,10 +48,12 @@ public class ResourcesController : ControllerBase
         return resource is null ? NotFound() : Ok(resource);
     }
 
-    /// <summary>Creates a new resource.</summary>
+    /// <summary>Creates a new resource. Admin only.</summary>
     [HttpPost]
+    [Authorize(Roles = nameof(UserRole.Admin))]
     [ProducesResponseType(typeof(ResourceResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ResourceResponse>> Create(
         CreateResourceRequest request,
         CancellationToken cancellationToken)
@@ -58,10 +62,12 @@ public class ResourcesController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
-    /// <summary>Replaces a resource's mutable fields.</summary>
+    /// <summary>Replaces a resource's mutable fields. Admin only.</summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = nameof(UserRole.Admin))]
     [ProducesResponseType(typeof(ResourceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ResourceResponse>> Update(
         Guid id,
@@ -72,9 +78,11 @@ public class ResourcesController : ControllerBase
         return updated is null ? NotFound() : Ok(updated);
     }
 
-    /// <summary>Deletes a resource.</summary>
+    /// <summary>Deletes a resource. Admin only.</summary>
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = nameof(UserRole.Admin))]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {

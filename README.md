@@ -113,19 +113,38 @@ Every endpoint requires authentication **except** `POST /api/v1/auth/register`,
 |--------|--------------------------|-------------------------------------|-------------|
 | `POST` | `/api/v1/auth/register`  | Create an account, returns a token | Anonymous   |
 | `POST` | `/api/v1/auth/login`     | Exchange credentials for a token   | Anonymous   |
-| `GET`  | `/api/v1/users/me`       | The current user's profile         | Bearer      |
+| `GET`  | `/api/v1/users/me`       | The current user's profile (includes `role`) | Bearer |
+
+### Roles
+
+Every account has a `role` — `User` or `Admin` — carried as a claim in the JWT
+(and echoed on `UserResponse`/`/me` so clients don't need to decode the token).
+Registration always creates a `User`; there is no self-service way to become an
+`Admin` (that would be a privilege-escalation hole). Instead, one `Admin`
+account is seeded by the `AddUserRole` migration:
+
+```
+email:    admin@bookings.local
+password: AdminPass123!
+```
+
+This is a local/demo credential, not a production secret — the migration only
+stores its BCrypt hash (work factor 12), same as any other account. Rotate or
+remove it before any real deployment.
 
 ## Resource API
 
-| Method   | Route                    | Description            | Success        |
-|----------|--------------------------|-------------------------|----------------|
-| `GET`    | `/api/v1/resources`      | List resources (paged)  | `200 OK`       |
-| `GET`    | `/api/v1/resources/{id}` | Get a resource by id    | `200` / `404`  |
-| `POST`   | `/api/v1/resources`      | Create a resource       | `201 Created`  |
-| `PUT`    | `/api/v1/resources/{id}` | Update a resource       | `200` / `404`  |
-| `DELETE` | `/api/v1/resources/{id}` | Delete a resource       | `204` / `404`  |
+| Method   | Route                    | Description            | Success        | Auth  |
+|----------|--------------------------|-------------------------|----------------|-------|
+| `GET`    | `/api/v1/resources`      | List resources (paged)  | `200 OK`       | Bearer |
+| `GET`    | `/api/v1/resources/{id}` | Get a resource by id    | `200` / `404`  | Bearer |
+| `POST`   | `/api/v1/resources`      | Create a resource       | `201 Created`  | **Admin** |
+| `PUT`    | `/api/v1/resources/{id}` | Update a resource       | `200` / `404`  | **Admin** |
+| `DELETE` | `/api/v1/resources/{id}` | Delete a resource       | `204` / `404`  | **Admin** |
 
-All resource endpoints require a bearer token. Example — create a resource:
+Reading resources only requires being signed in; creating, updating, and
+deleting them requires the `Admin` role (`403 Forbidden` otherwise). Example —
+create a resource:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/resources \
@@ -169,6 +188,18 @@ curl -X POST http://localhost:8080/api/v1/bookings \
         "notes": "Sprint planning"
       }'
 ```
+
+## Admin API
+
+| Method | Route                    | Description                                   | Success | Auth      |
+|--------|--------------------------|-------------------------------------------------|---------|-----------|
+| `GET`  | `/api/v1/admin/bookings` | All bookings, across every resource and user, newest first | `200`   | **Admin** |
+
+Returns `AdminBookingResponse` — a booking enriched with its resource name and
+owner's email/name (via a join), so the admin UI doesn't need extra round-trips
+to resolve them. Supports the same `from`/`to`/`includeCancelled`/pagination
+parameters as the other list endpoints, plus optional `resourceId`/`userId`
+filters. `403` for a non-admin, `401` if unauthenticated.
 
 ## Pagination
 
