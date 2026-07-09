@@ -1,13 +1,16 @@
+using Asp.Versioning;
 using Bookings.Api.Common;
 using Bookings.Application.Bookings;
 using Bookings.Application.Bookings.Dtos;
+using Bookings.Application.Common.Pagination;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Bookings.Api.Controllers;
 
 [Authorize]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class BookingsController : ApiControllerBase
 {
     private readonly IBookingService _bookingService;
@@ -71,38 +74,40 @@ public class BookingsController : ApiControllerBase
     }
 
     /// <summary>Lists a resource's bookings (its schedule).</summary>
-    [HttpGet("/api/resources/{resourceId:guid}/bookings")]
-    [ProducesResponseType(typeof(IReadOnlyList<BookingResponse>), StatusCodes.Status200OK)]
+    [HttpGet("/api/v{version:apiVersion}/resources/{resourceId:guid}/bookings")]
+    [ProducesResponseType(typeof(PagedResult<BookingResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<BookingResponse>>> GetForResource(
+    public async Task<ActionResult<PagedResult<BookingResponse>>> GetForResource(
         Guid resourceId,
         [FromQuery] DateTimeOffset? from,
         [FromQuery] DateTimeOffset? to,
-        [FromQuery] bool includeCancelled = false,
-        CancellationToken cancellationToken = default)
+        [FromQuery] bool includeCancelled,
+        [FromQuery] PaginationParameters pagination,
+        CancellationToken cancellationToken)
     {
-        var result = await _bookingService.GetForResourceAsync(
-            resourceId, new BookingQuery(from, to, includeCancelled), cancellationToken);
+        var query = new BookingQuery(from, to, includeCancelled, pagination.Page, pagination.PageSize);
+        var result = await _bookingService.GetForResourceAsync(resourceId, query, cancellationToken);
 
         return result.IsSuccess ? Ok(result.Value) : HandleError(result.Error!);
     }
 
     /// <summary>Lists the current user's bookings.</summary>
-    [HttpGet("/api/me/bookings")]
-    [ProducesResponseType(typeof(IReadOnlyList<BookingResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<BookingResponse>>> GetMine(
+    [HttpGet("/api/v{version:apiVersion}/me/bookings")]
+    [ProducesResponseType(typeof(PagedResult<BookingResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<BookingResponse>>> GetMine(
         [FromQuery] DateTimeOffset? from,
         [FromQuery] DateTimeOffset? to,
-        [FromQuery] bool includeCancelled = false,
-        CancellationToken cancellationToken = default)
+        [FromQuery] bool includeCancelled,
+        [FromQuery] PaginationParameters pagination,
+        CancellationToken cancellationToken)
     {
         if (User.GetUserId() is not { } userId)
         {
             return Unauthorized();
         }
 
-        var bookings = await _bookingService.GetForUserAsync(
-            userId, new BookingQuery(from, to, includeCancelled), cancellationToken);
+        var query = new BookingQuery(from, to, includeCancelled, pagination.Page, pagination.PageSize);
+        var bookings = await _bookingService.GetForUserAsync(userId, query, cancellationToken);
 
         return Ok(bookings);
     }

@@ -1,6 +1,7 @@
 using Bookings.Application.Bookings.Dtos;
 using Bookings.Application.Common.Exceptions;
 using Bookings.Application.Common.Interfaces;
+using Bookings.Application.Common.Pagination;
 using Bookings.Application.Common.Results;
 using Bookings.Domain.Entities;
 using Bookings.Domain.Enums;
@@ -153,7 +154,7 @@ public class BookingService : IBookingService
         return Result<BookingResponse>.Success(booking.ToResponse());
     }
 
-    public async Task<Result<IReadOnlyList<BookingResponse>>> GetForResourceAsync(Guid resourceId, BookingQuery query, CancellationToken cancellationToken = default)
+    public async Task<Result<PagedResult<BookingResponse>>> GetForResourceAsync(Guid resourceId, BookingQuery query, CancellationToken cancellationToken = default)
     {
         var resourceExists = await _dbContext.Resources
             .AnyAsync(r => r.Id == resourceId, cancellationToken);
@@ -163,19 +164,30 @@ public class BookingService : IBookingService
             return Error.NotFound($"Resource '{resourceId}' was not found.");
         }
 
-        var bookings = await BuildQuery(_dbContext.Bookings.Where(b => b.ResourceId == resourceId), query)
-            .ToListAsync(cancellationToken);
+        var filtered = BuildQuery(_dbContext.Bookings.Where(b => b.ResourceId == resourceId), query);
+        var page = await PaginateAsync(filtered, query, cancellationToken);
 
-        return Result<IReadOnlyList<BookingResponse>>.Success(
-            bookings.Select(b => b.ToResponse()).ToList());
+        return Result<PagedResult<BookingResponse>>.Success(page);
     }
 
-    public async Task<IReadOnlyList<BookingResponse>> GetForUserAsync(Guid userId, BookingQuery query, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<BookingResponse>> GetForUserAsync(Guid userId, BookingQuery query, CancellationToken cancellationToken = default)
     {
-        var bookings = await BuildQuery(_dbContext.Bookings.Where(b => b.UserId == userId), query)
+        var filtered = BuildQuery(_dbContext.Bookings.Where(b => b.UserId == userId), query);
+        return await PaginateAsync(filtered, query, cancellationToken);
+    }
+
+    private static async Task<PagedResult<BookingResponse>> PaginateAsync(
+        IQueryable<Booking> filtered, BookingQuery query, CancellationToken cancellationToken)
+    {
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var bookings = await filtered
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
             .ToListAsync(cancellationToken);
 
-        return bookings.Select(b => b.ToResponse()).ToList();
+        return new PagedResult<BookingResponse>(
+            bookings.Select(b => b.ToResponse()).ToList(), query.Page, query.PageSize, totalCount);
     }
 
     private Task<bool> HasOverlapAsync(Guid resourceId, DateTimeOffset startsAt, DateTimeOffset endsAt, CancellationToken cancellationToken)

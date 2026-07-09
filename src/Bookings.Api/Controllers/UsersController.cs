@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Bookings.Api.Common;
 using Bookings.Application.Users;
 using Bookings.Application.Users.Dtos;
@@ -7,7 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Bookings.Api.Controllers;
 
 [Authorize]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class UsersController : ApiControllerBase
 {
     private readonly IUserService _userService;

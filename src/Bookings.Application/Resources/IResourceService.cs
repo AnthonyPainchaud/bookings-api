@@ -1,3 +1,4 @@
+using Bookings.Application.Common.Pagination;
 using Bookings.Application.Resources.Dtos;
 
 namespace Bookings.Application.Resources;
@@ -8,7 +9,7 @@ namespace Bookings.Application.Resources;
 /// </summary>
 public interface IResourceService
 {
-    Task<IReadOnlyList<ResourceResponse>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<PagedResult<ResourceResponse>> GetAllAsync(int page, int pageSize, CancellationToken cancellationToken = default);
 
     /// <summary>Returns the resource, or <c>null</c> if no resource has the given id.</summary>
     Task<ResourceResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);

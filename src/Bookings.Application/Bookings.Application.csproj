@@ -10,6 +10,12 @@
     unit-testable against an in-memory or substitute context.
   -->
 
+  <PropertyGroup>
+    <!-- DTO doc comments flow into the API's Swagger output. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.8" />
   </ItemGroup>

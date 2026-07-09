@@ -1,13 +1,16 @@
 using Bookings.Application.Bookings.Dtos;
+using Bookings.Application.Common.Pagination;
 using Bookings.Application.Common.Results;
 
 namespace Bookings.Application.Bookings;
 
-/// <summary>Query filter for listing bookings.</summary>
+/// <summary>Query filter and pagination for listing bookings.</summary>
 public record BookingQuery(
     DateTimeOffset? From = null,
     DateTimeOffset? To = null,
-    bool IncludeCancelled = false);
+    bool IncludeCancelled = false,
+    int Page = 1,
+    int PageSize = 20);
 
 public interface IBookingService
 {
@@ -27,8 +30,8 @@ public interface IBookingService
     Task<Result<BookingResponse>> CancelAsync(Guid userId, Guid bookingId, CancellationToken cancellationToken = default);
 
     /// <summary>Lists bookings for a resource. Not-found if the resource does not exist.</summary>
-    Task<Result<IReadOnlyList<BookingResponse>>> GetForResourceAsync(Guid resourceId, BookingQuery query, CancellationToken cancellationToken = default);
+    Task<Result<PagedResult<BookingResponse>>> GetForResourceAsync(Guid resourceId, BookingQuery query, CancellationToken cancellationToken = default);
 
     /// <summary>Lists the bookings owned by <paramref name="userId"/>.</summary>
-    Task<IReadOnlyList<BookingResponse>> GetForUserAsync(Guid userId, BookingQuery query, CancellationToken cancellationToken = default);
+    Task<PagedResult<BookingResponse>> GetForUserAsync(Guid userId, BookingQuery query, CancellationToken cancellationToken = default);
 }

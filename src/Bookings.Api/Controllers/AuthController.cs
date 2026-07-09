@@ -1,13 +1,20 @@
+using Asp.Versioning;
 using Bookings.Api.Common;
+using Bookings.Api.Startup;
 using Bookings.Application.Authentication;
 using Bookings.Application.Authentication.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Bookings.Api.Controllers;
 
 [AllowAnonymous]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
+// Stricter, IP-based limit on top of the global limiter to slow down
+// credential-stuffing / brute-force attempts against these anonymous endpoints.
+[EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
 public class AuthController : ApiControllerBase
 {
     private readonly IAuthService _authService;

@@ -1,4 +1,5 @@
 using Bookings.Application.Common.Interfaces;
+using Bookings.Application.Common.Pagination;
 using Bookings.Application.Resources.Dtos;
 using Bookings.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -20,17 +21,22 @@ public class ResourceService : IResourceService
         _timeProvider = timeProvider;
     }
 
-    public async Task<IReadOnlyList<ResourceResponse>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ResourceResponse>> GetAllAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         // AsNoTracking: read-only query, so skip change-tracking overhead.
+        var query = _dbContext.Resources.AsNoTracking().OrderBy(r => r.Name);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
         // Materialize first, then map in memory — ToResponse() is a plain method
         // and cannot be translated to SQL inside the query.
-        var resources = await _dbContext.Resources
-            .AsNoTracking()
-            .OrderBy(r => r.Name)
+        var resources = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return resources.Select(r => r.ToResponse()).ToList();
+        return new PagedResult<ResourceResponse>(
+            resources.Select(r => r.ToResponse()).ToList(), page, pageSize, totalCount);
     }
 
     public async Task<ResourceResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

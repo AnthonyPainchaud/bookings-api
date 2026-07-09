@@ -1,3 +1,6 @@
+using Asp.Versioning;
+using Bookings.Api.Common;
+using Bookings.Application.Common.Pagination;
 using Bookings.Application.Resources;
 using Bookings.Application.Resources.Dtos;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +13,8 @@ namespace Bookings.Api.Controllers;
 /// to the appropriate status codes.
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 [Produces("application/json")]
 public class ResourcesController : ControllerBase
 {
@@ -21,12 +25,14 @@ public class ResourcesController : ControllerBase
         _resourceService = resourceService;
     }
 
-    /// <summary>Lists all resources, ordered by name.</summary>
+    /// <summary>Lists resources, ordered by name.</summary>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<ResourceResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<ResourceResponse>>> GetAll(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(PagedResult<ResourceResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<ResourceResponse>>> GetAll(
+        [FromQuery] PaginationParameters pagination,
+        CancellationToken cancellationToken)
     {
-        var resources = await _resourceService.GetAllAsync(cancellationToken);
+        var resources = await _resourceService.GetAllAsync(pagination.Page, pagination.PageSize, cancellationToken);
         return Ok(resources);
     }
 
