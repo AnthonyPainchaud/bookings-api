@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Fast, dependency-free tests: EF Core's InMemory provider stands in for
+    PostgreSQL so these run without Docker. They exercise the real
+    BookingService/ResourceService — the same code that runs in production —
+    against an in-memory database, not a re-implementation of the logic.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bookings.Application\Bookings.Application.csproj" />
+    <ProjectReference Include="..\..\src\Bookings.Infrastructure\Bookings.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Bookings.Domain\Bookings.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

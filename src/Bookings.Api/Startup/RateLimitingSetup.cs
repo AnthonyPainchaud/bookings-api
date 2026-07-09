@@ -16,10 +16,16 @@ public static class RateLimitingSetup
     /// authenticated user (falling back to client IP), plus a stricter policy
     /// for the anonymous login/register endpoints where brute-forcing is a
     /// concern. Rejections are returned as ProblemDetails for a consistent
-    /// error shape with the rest of the API.
+    /// error shape with the rest of the API. Permit limits are configurable
+    /// (see <see cref="RateLimitingOptions"/>) so they can be tuned per
+    /// environment — e.g. relaxed for the automated test suite, which
+    /// legitimately registers many throwaway users in quick succession.
     /// </summary>
-    public static IServiceCollection AddCustomRateLimiting(this IServiceCollection services)
+    public static IServiceCollection AddCustomRateLimiting(this IServiceCollection services, IConfiguration configuration)
     {
+        var limits = configuration.GetSection(RateLimitingOptions.SectionName).Get<RateLimitingOptions>()
+            ?? new RateLimitingOptions();
+
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -32,7 +38,7 @@ public static class RateLimitingSetup
 
                 return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 100,
+                    PermitLimit = limits.GlobalPermitLimit,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0
                 });
@@ -44,7 +50,7 @@ public static class RateLimitingSetup
 
                 return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 5,
+                    PermitLimit = limits.AuthPermitLimit,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0
                 });

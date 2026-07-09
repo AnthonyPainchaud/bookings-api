@@ -5,6 +5,7 @@ using Bookings.Api.Startup;
 using Bookings.Application;
 using Bookings.Infrastructure;
 using Bookings.Infrastructure.Persistence;
+using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
@@ -36,7 +37,7 @@ try
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
     builder.Services.AddApiVersioningSetup();
-    builder.Services.AddCustomRateLimiting();
+    builder.Services.AddCustomRateLimiting(builder.Configuration);
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
@@ -94,8 +95,11 @@ try
 
     app.Run();
 }
-catch (Exception ex)
+catch (Exception ex) when (ex is not HostAbortedException)
 {
+    // HostAbortedException is deliberately thrown by WebApplicationFactory (used
+    // in integration tests) to unwind Main after building the host, without
+    // running it — it must propagate, not be logged as a real startup failure.
     Log.Fatal(ex, "Bookings API terminated unexpectedly");
 }
 finally
@@ -141,3 +145,8 @@ static void ConfigureSwagger(Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions
 
     options.SchemaFilter<Bookings.Api.Startup.ExampleSchemaFilter>();
 }
+
+// Top-level statements generate an internal Program class; this partial
+// re-declaration makes it public so integration tests can boot the app via
+// WebApplicationFactory<Program>.
+public partial class Program;

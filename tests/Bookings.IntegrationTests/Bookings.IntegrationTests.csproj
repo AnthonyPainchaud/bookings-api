@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    End-to-end tests driven through real HTTP calls against the actual ASP.NET
+    Core pipeline (WebApplicationFactory) and a real, disposable PostgreSQL
+    instance (Testcontainers) — the same database engine and migrations
+    (including the exclusion constraint) used in production.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.8" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="3.10.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bookings.Api\Bookings.Api.csproj" />
+    <ProjectReference Include="..\..\src\Bookings.Application\Bookings.Application.csproj" />
+    <ProjectReference Include="..\..\src\Bookings.Domain\Bookings.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -8,7 +8,7 @@ slots. Built with **ASP.NET Core (.NET 8)**, **Entity Framework Core**, and
 > **Status:** JWT-authenticated, versioned bookings API — resource/user
 > management and booking functionality with overlap-conflict detection,
 > concurrency-safe reservations, ownership-based authorization, pagination,
-> rate limiting, and structured logging.
+> rate limiting, structured logging, and an automated test suite running in CI.
 
 ## Tech stack
 
@@ -20,6 +20,7 @@ slots. Built with **ASP.NET Core (.NET 8)**, **Entity Framework Core**, and
 - Serilog structured logging
 - Docker + Docker Compose
 - Swagger / OpenAPI (development), versioned docs + bearer auth support
+- xUnit, EF Core InMemory, Testcontainers + GitHub Actions CI
 
 ## Solution structure
 
@@ -43,6 +44,9 @@ Bookings.Domain         Entities and enums — no external dependencies
   database provider.
 - **Infrastructure** provides the concrete EF Core / PostgreSQL implementation.
 - **Api** is the thin composition root and HTTP layer.
+
+`tests/Bookings.UnitTests` and `tests/Bookings.IntegrationTests` sit alongside
+`src/` and follow the same dependency direction — see [Testing](#testing).
 
 ## Running it
 
@@ -264,7 +268,66 @@ dotnet ef migrations add <Name> \
   --output-dir Persistence/Migrations
 ```
 
+## Testing
+
+Two test projects, split by what they need to run:
+
+- **`tests/Bookings.UnitTests`** — fast, dependency-free. Uses EF Core's
+  InMemory provider in place of PostgreSQL, so it runs with no Docker and no
+  network access. It exercises the real `BookingService`/`ResourceService`
+  classes (the actual production code), not a re-implementation of their
+  logic.
+  - `BookingConflictDetectionTests` — a `[Theory]` covering every overlap
+    shape (exact match, starts-during, ends-during, contains, contained) plus
+    the two adjacent/back-to-back cases that must **not** conflict, a
+    cancelled booking freeing its slot, and the same time range being fine on
+    a different resource.
+  - `BookingDomainRuleTests` — end-not-after-start, start-in-the-past,
+    exceeds-max-duration, resource-not-found, inactive-resource.
+- **`tests/Bookings.IntegrationTests`** — end-to-end, driven through real HTTP
+  calls against the actual ASP.NET Core pipeline
+  (`Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory`) and a real,
+  disposable PostgreSQL instance ([Testcontainers](https://dotnet.testcontainers.org/)),
+  running the same migrations — including the exclusion constraint — used in
+  production. One container is shared across the whole run for speed; tests
+  use unique emails/resource names for isolation rather than resetting the
+  database between tests.
+  - `ResourceCrudTests` — create/get/update/delete plus 404s and validation.
+  - `BookingConflictTests` — every overlap shape rejected with `409` over real
+    HTTP against the real exclusion constraint, back-to-back bookings
+    succeeding, cancel-then-rebook, and **10 concurrent requests for the same
+    slot producing exactly one `201` and nine `409`s** — the same race-safety
+    property verified manually in earlier stages, now automated.
+  - `AuthorizationTests` — no token → `401`, malformed token → `401`, and a
+    user acting on another user's booking → `403`.
+  - `PaginationTests` — page/pageSize slicing with no overlap between pages,
+    out-of-range parameters → `400`, and correct `totalCount`.
+
+Run everything locally:
+
+```bash
+dotnet test Bookings.sln
+```
+
+(Integration tests need Docker running locally, since Testcontainers starts a
+real PostgreSQL container per test run.)
+
+Coverage is deliberately not 100%: trivial mapping/DI-registration code isn't
+tested directly, since it's exercised implicitly by the integration tests and
+adds little by being asserted on in isolation. Effort went into the booking
+conflict/concurrency logic (the most important — and most failure-prone —
+business rule in the system) and the security-relevant paths (auth,
+ownership, validation).
+
+## Continuous integration
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) builds the solution and
+runs the full test suite (unit + integration) on every push and on pull
+requests targeting `main`. GitHub-hosted `ubuntu-latest` runners have Docker
+available natively, so the Testcontainers-based integration tests need no
+special setup. Test results are uploaded as a build artifact (`.trx`) for
+inspection on failure.
+
 ## Roadmap
 
 - Role-based authorization (e.g. resource administration), refresh tokens.
-- Automated test suite (integration tests against PostgreSQL) and CI.
